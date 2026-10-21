@@ -1028,7 +1028,7 @@ chat.addEventListener('click',ev=>{
 let AI={provider:'gemini',key:'',model:'',ds:''};
 try{const c=JSON.parse(localStorage.getItem('roz-ai-cfg')||'null');if(c&&(c.key||c.ds))AI=Object.assign(AI,c);}catch(e){}
 /* PERSONAL USE ONLY: paste your own keys here (provider: gemini, claude, deepseek or openai). Anyone who can open this file can read them, so never publish the file online with keys inside. */
-const PRESET={provider:'gemini',key:'AQ.Ab8RN6KsXG7rWUxiSvliwr3BrCMB4nRCMc5BDGqcLy0oZbRbug',model:'',ds:'sk-6f34ecfd13244a4481488250301b30e9'};
+const PRESET={provider:'gemini',key:'AQ.Ab8RN6Ik8MTr9pMywN8RiCDjOJNXBgzq8rGIptOmz3rw6SXQQg',model:'',ds:'sk-6f34ecfd13244a4481488250301b30e9'};
 if(PRESET.key||PRESET.ds)AI=Object.assign({},AI,PRESET); /* built-in key always wins; setup panel is hidden */
 const hist=[],acache=new Map();
 const DEFAULT_MODEL={gemini:'gemini-flash-latest',claude:'claude-sonnet-5-5',deepseek:'deepseek-chat',openai:'gpt-4o'};
