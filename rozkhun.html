@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ROZKHUN – BTC, Gold &amp; XRP</title>
+<style>
+:root{--bg:#0d1b2a;--panel:#14283c;--line:#25405a;--text:#e6edf3;--mute:#8aa0b5;--buy:#3ddc97;--sell:#ff6b6b;--hold:#e9b44c;--r:10px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Segoe UI",system-ui,sans-serif;padding:16px;max-width:980px;margin-inline:auto}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--mute);margin:0 0 16px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+button{background:var(--panel);color:var(--text);border:1px solid var(--line);padding:8px 14px;border-radius:8px;font:inherit;cursor:pointer}
+button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+button:focus-visible{outline:2px solid var(--hold);outline-offset:2px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.price{font-size:30px;font-weight:700}
+.chg{font-size:14px}
+.sig{font-size:44px;font-weight:800;letter-spacing:1px;margin:4px 0}
+.buy{color:var(--buy)}.sell{color:var(--sell)}.hold{color:var(--hold)}
+.meter{height:8px;background:var(--bg);border-radius:4px;position:relative;margin:8px 0 14px}
+.meter i{position:absolute;top:-3px;width:4px;height:14px;background:var(--text);border-radius:2px;transition:left .4s}
+ul{margin:0;padding:0;list-style:none}
+li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+li:last-child{border:0}
+li span:last-child{font-weight:600;white-space:nowrap}
+canvas{width:100%;height:320px;display:block}
+.lv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.lv div{background:var(--bg);border-radius:8px;padding:8px}
+.lv small{color:var(--mute);display:block}
+.err{color:var(--sell)}
+input{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit}
+label small{color:var(--mute);display:block;margin-bottom:2px}
+.warn{color:var(--hold);font-size:13px;margin-top:8px}
+.note{color:var(--mute);font-size:12.5px;margin-top:14px}
+</style>
+</head>
+<body>
+<h1>ROZKHUN</h1>
+<p class="sub">Live technical analysis with a buy / sell / hold signal for Bitcoin, Gold and XRP.</p>
+
+<div class="bar" id="assets"></div>
+<div class="bar" id="tfs"></div>
+<div class="bar"><button id="alertBtn" aria-pressed="false">🔔 Alerts: off</button></div>
+
+<div class="grid">
+  <div class="card">
+    <div id="name" style="color:var(--mute)">Loading…</div>
+    <div class="price" id="price">–</div>
+    <div class="chg" id="chg"></div>
+    <div class="sig hold" id="sig">…</div>
+    <div class="meter"><i id="needle" style="left:50%"></i></div>
+    <div id="conf" style="color:var(--mute)"></div>
+    <div class="lv" id="lv"></div>
+  </div>
+  <div class="card">
+    <b>Why this signal</b>
+    <ul id="why"></ul>
+  </div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <b>Market information</b>
+  <div class="lv" id="mkt" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">Loading…</div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <b>Where to act</b>
+  <div id="verdict" style="margin:6px 0 10px;color:var(--mute)">Checking all timeframes…</div>
+  <div class="lv" id="zones" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))"></div>
+  <div class="lv" id="zv" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))"></div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <b>Next 15 minutes</b>
+  <div id="o15v" class="hold" style="font-size:28px;font-weight:800;margin:6px 0">Analyzing…</div>
+  <div id="o15t" style="color:var(--mute);margin-bottom:10px"></div>
+  <div class="lv" id="o15" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr))"></div>
+  <div class="note" id="o15n"></div>
+</div>
+
+<div class="grid" style="margin-top:14px">
+  <div class="card"><b>All timeframes</b><ul id="mtf"><li>Loading…</li></ul></div>
+  <div class="card"><b>Buy / sell price by exchange</b><ul id="ex"><li>Loading…</li></ul>
+    <div class="note" id="exn"></div></div>
+</div>
+
+<div class="grid" style="margin-top:14px">
+  <div class="card"><b>Risk calculator</b>
+    <div class="lv" style="grid-template-columns:1fr 1fr">
+      <label><small>Account balance (USD)</small><input id="bal" type="number" value="1000" min="1"></label>
+      <label><small>Risk per trade (%)</small><input id="rk" type="number" value="1" min="0.1" max="10" step="0.1"></label>
+    </div>
+    <ul id="rc" style="margin-top:8px"><li>Waiting for a signal…</li></ul>
+    <div class="warn" id="rcw"></div>
+  </div>
+  <div class="card"><b>Signal history</b>
+    <ul id="hist"><li>No changes yet</li></ul>
+    <div class="note">Logged whenever the signal changes while this page is open. Saved in this browser only.</div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <b>Second opinion: TradingView</b>
+  <p class="note" style="margin:4px 0 8px">TradingView's own summary of 26 indicators (11 oscillators and 15 moving averages). Pick the same timeframe as the signal above. Compare it with the signal above.</p>
+  <div id="tv-ta" style="min-height:420px"></div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <b>Latest market news</b>
+  <div id="tv-news" style="min-height:420px;margin-top:8px"></div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <canvas id="cv" width="900" height="320"></canvas>
+  <div id="status" class="note"></div>
+</div>
+
+<p class="note">Educational tool, not financial advice. Signals come from rule-based indicators (SMA, EMA/MACD, RSI, Bollinger Bands, momentum) and cannot predict the market. Gold uses PAXG (tokenized gold, tracks the spot gold price) and XRP uses its XRP/USDT pair, both from Binance public data. Never risk money you can't afford to lose.</p>
+
+<script>
+const ASSETS={
+  BTC:{sym:"BTCUSDT",base:"BTC",cb:"BTC-USD",kr:"XBTUSD",name:"Bitcoin (BTC/USD)",short:"Bitcoin",tv:"BINANCE:BTCUSDT",crypto:1,p0:90000},
+  GOLD:{sym:"PAXGUSDT",base:"PAXG",cb:"PAXG-USD",kr:"PAXGUSD",name:"Gold (XAU/USD via PAXG)",short:"Gold",tv:"OANDA:XAUUSD",p0:4000},
+  XRP:{sym:"XRPUSDT",base:"XRP",cb:"XRP-USD",kr:"XRPUSD",name:"XRP (XRP/USD)",short:"XRP",tv:"BINANCE:XRPUSDT",crypto:1,p0:2}
+};
+const TFS=["15m","1h","4h","1d"];
+let asset="BTC",tf="1h",timer,tick=0,live=null,busy=false,goodP=0,goodK=0;
+const $=id=>document.getElementById(id);
+
+/* ---- DOM helpers: only touch the page when the value really changed ---- */
+const dc={};
+function setT(id,v){if(dc[id]!==v){dc[id]=v;$(id).textContent=v}}
+function setH(id,v){const k="h"+id;if(dc[k]!==v){dc[k]=v;$(id).innerHTML=v}}
+function setC(id,v){const k="c"+id;if(dc[k]!==v){dc[k]=v;$(id).className=v}}
+
+function mk(box,items,get,set,after){
+  $(box).innerHTML="";
+  items.forEach(k=>{const b=document.createElement("button");b.textContent=k;
+    b.className=get()===k?"on":"";b.onclick=()=>{tick=0;set(k);mk(box,items,get,set,after);after();load()};$(box).append(b)});
+}
+mk("assets",Object.keys(ASSETS),()=>asset,v=>asset=v,()=>{live=null;setT("name","Loading…");tvLoad()});
+mk("tfs",TFS,()=>tf,v=>tf=v,()=>{live=null;tvLoad("ta")});
+
+/* ---- TradingView widgets: load only when scrolled near, reload only what changed ---- */
+function tvWidget(box,file,cfg){
+  const el=$(box);el.innerHTML="";
+  const wrap=document.createElement("div");wrap.className="tradingview-widget-container";
+  const inner=document.createElement("div");inner.className="tradingview-widget-container__widget";wrap.appendChild(inner);
+  const sc=document.createElement("script");sc.src="https://s3.tradingview.com/external-embedding/"+file;sc.async=true;
+  sc.textContent=JSON.stringify(Object.assign({width:"100%",colorTheme:"dark",isTransparent:true,locale:"en"},cfg));
+  wrap.appendChild(sc);el.appendChild(wrap);
+}
+const tvFns={},tvSeen={},tvPend={};
+function tvDefer(box,fn){tvFns[box]=fn;if(tvSeen[box]||!("IntersectionObserver" in window)){tvSeen[box]=1;fn()}else tvPend[box]=1}
+if("IntersectionObserver" in window){
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){const b=e.target.id;tvSeen[b]=1;if(tvPend[b]){tvPend[b]=0;tvFns[b]()}}}),{rootMargin:"300px"});
+  io.observe($("tv-ta"));io.observe($("tv-news"));
+}
+function tvLoad(w){
+  if(!w||w==="ta")tvDefer("tv-ta",()=>tvWidget("tv-ta","embed-widget-technical-analysis.js",{symbol:ASSETS[asset].tv,interval:{"15m":"15m","1h":"1h","4h":"4h","1d":"1D"}[tf],height:420,showIntervalTabs:true,displayMode:"single"}));
+  if(!w||w==="news")tvDefer("tv-news",()=>tvWidget("tv-news","embed-widget-timeline.js",{feedMode:"symbol",symbol:ASSETS[asset].tv,displayMode:"regular",height:420}));
+}
+
+/* ---- Network: timeouts, caching, and "try the last working server first" ---- */
+async function tryJ(url,ms=6000){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);
+  try{const r=await fetch(url,{signal:c.signal});if(!r.ok)throw new Error(r.status);return await r.json()}finally{clearTimeout(t)}}
+// Start the server that worked last time; only ask the others if it fails or is slow (1.5 s).
+async function hedged(fns,g){
+  const p=fns[g]();p.catch(()=>{});
+  const early=await Promise.race([p.then(v=>({v}),()=>({fail:1})),new Promise(r=>setTimeout(r,1500,{slow:1}))]);
+  if(early.v!==undefined)return[g,early.v];
+  const others=fns.map((f,i)=>i===g?null:f().then(v=>[i,v])).filter(Boolean);
+  return Promise.any([p.then(v=>[g,v]),...others]);
+}
+async function fetchK0(sym,iv,limit){
+  const base=sym.replace("USDT","");
+  const by={"1m":"1","5m":"5","15m":"15","1h":"60","4h":"240","1d":"D"}[iv],ok={"1m":"1m","5m":"5m","15m":"15m","1h":"1H","4h":"4H","1d":"1D"}[iv];
+  const chk=d=>{if(!d||d.length<60)throw 0;return d};
+  const S=[
+    async()=>chk((await tryJ(`https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${iv}&limit=${limit}`)).map(k=>({t:k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4]}))),
+    async()=>chk((await tryJ(`https://data-api.binance.vision/api/v3/klines?symbol=${sym}&interval=${iv}&limit=${limit}`)).map(k=>({t:k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4]}))),
+    async()=>chk((await tryJ(`https://api.bybit.com/v5/market/kline?category=spot&symbol=${sym}&interval=${by}&limit=${Math.min(limit,1000)}`)).result.list.reverse().map(k=>({t:+k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4]}))),
+    async()=>chk((await tryJ(`https://www.okx.com/api/v5/market/candles?instId=${base}-USDT&bar=${ok}&limit=${Math.min(limit,300)}`)).data.reverse().map(k=>({t:+k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4]})))
+  ];
+  try{const[i,d]=await hedged(S,goodK);goodK=i;return d}
+  catch(e){throw new Error("Cannot reach any market data server (Binance, Bybit, OKX).")}
+}
+// Same request within 12 s (load, all-timeframes, outlook) shares one download.
+const kcache=new Map();
+function fetchK(sym,iv,limit=300){
+  const key=sym+iv+limit,c=kcache.get(key),now=Date.now();
+  if(c&&now-c.t<12000)return c.p;
+  const ent={t:now};
+  ent.p=fetchK0(sym,iv,limit).catch(e=>{if(kcache.get(key)===ent)kcache.delete(key);throw e});
+  kcache.set(key,ent);
+  if(kcache.size>40)for(const[k,v]of kcache)if(now-v.t>60000)kcache.delete(k);
+  return ent.p;
+}
+
+/* ---- Indicators ---- */
+function ema(a,n){const k=2/(n+1);let e=a[0];const o=new Array(a.length);o[0]=e;for(let i=1;i<a.length;i++){e=a[i]*k+e*(1-k);o[i]=e}return o}
+function rsi(c,n=14){let g=0,l=0;for(let i=1;i<=n;i++){const d=c[i]-c[i-1];d>0?g+=d:l-=d}
+  g/=n;l/=n;for(let i=n+1;i<c.length;i++){const d=c[i]-c[i-1];g=(g*(n-1)+Math.max(d,0))/n;l=(l*(n-1)+Math.max(-d,0))/n}
+  return l===0?100:100-100/(1+g/l)}
+function atr(d,n=14){let s=0;for(let i=d.length-n;i<d.length;i++){const x=d[i];s+=Math.max(x.h-x.l,Math.abs(x.h-d[i-1].c),Math.abs(x.l-d[i-1].c))}return s/n}
+const NF=[0,2,4].map(m=>new Intl.NumberFormat("en-US",{maximumFractionDigits:m}));
+const fmt=v=>NF[v>=1000?0:v>=10?1:2].format(v);
+
+function analyze(d,full){
+  const N=d.length,c=new Array(N);for(let i=0;i<N;i++)c[i]=d[i].c;
+  const last=c[N-1];
+  const avg=(i,n)=>{let s=0;for(let j=i-n+1;j<=i;j++)s+=c[j];return s/n};
+  const band=(i)=>{const m=avg(i,20);let q=0;for(let j=i-19;j<=i;j++)q+=(c[j]-m)**2;const sd=Math.sqrt(q/20);return[m,m+2*sd,m-2*sd]};
+  const s20=avg(N-1,20),s50=avg(N-1,50);
+  const e12=ema(c,12),e26=ema(c,26),macd=e12.map((v,i)=>v-e26[i]),sg=ema(macd,9);
+  const hist=macd[N-1]-sg[N-1],histPrev=macd[N-2]-sg[N-2];
+  const r=rsi(c),a=atr(d);
+  const[,up,lo]=band(N-1),pos=(last-lo)/(up-lo);
+  const mom=(last/c[N-11]-1)*100;
+  const why=[];let score=0;
+  const add=(pts,label,val)=>{score+=pts;why.push({pts,label,val})};
+
+  add(last>s50?1:-1,"Price vs SMA 50",last>s50?"Above (bullish)":"Below (bearish)");
+  add(s20>s50?1:-1,"SMA 20 vs SMA 50",s20>s50?"Uptrend":"Downtrend");
+  add(hist>0?(hist>histPrev?1:0.5):(hist<histPrev?-1:-0.5),"MACD histogram",hist>0?"Positive"+(hist>histPrev?", rising":", fading"):"Negative"+(hist<histPrev?", falling":", recovering"));
+  add(r<30?1.5:r<45?0.5:r>70?-1.5:r>60?-0.5:0,"RSI (14)",r.toFixed(1)+(r<30?" oversold":r>70?" overbought":""));
+  add(pos<0.1?1:pos>0.9?-1:0,"Bollinger position",(pos*100).toFixed(0)+"% of band"+(pos<0.1?" (near lower)":pos>0.9?" (near upper)":""));
+  add(mom>1?0.5:mom<-1?-0.5:0,"Momentum (10 bars)",(mom>0?"+":"")+mom.toFixed(2)+"%");
+
+  const action=score>=2?"BUY":score<=-2?"SELL":"HOLD";
+  const R={last,score,action,why,a,rsi:r,
+    conf:Math.min(100,Math.round(Math.abs(score)/5.5*100)),
+    sl:action==="SELL"?last+1.5*a:last-1.5*a,
+    tp:action==="SELL"?last-3*a:last+3*a};
+  if(full){ // chart lines for the last 100 bars only
+    const n=Math.min(100,N);R.s20=[];R.s50=[];R.up=[];R.lo=[];
+    for(let i=N-n;i<N;i++){const b=band(i);R.s20.push(b[0]);R.up.push(b[1]);R.lo.push(b[2]);R.s50.push(i>=49?avg(i,50):null)}
+  }
+  return R;
+}
+
+/* ---- Chart: at most one redraw per animation frame ---- */
+let drawQ=null;
+function draw(d,R){if(!drawQ){requestAnimationFrame(()=>{const q=drawQ;drawQ=null;if(q)drawNow(q[0],q[1])})}drawQ=[d,R]}
+function drawNow(d,R){
+  const cv=$("cv"),x=cv.getContext("2d"),W=cv.width,H=cv.height,n=Math.min(100,d.length);
+  const sl=d.slice(-n);
+  let mn=Infinity,mx=-Infinity;
+  for(const k of sl){if(k.h>mx)mx=k.h;if(k.l<mn)mn=k.l}
+  for(const v of R.up)if(v>mx)mx=v;for(const v of R.lo)if(v<mn)mn=v;
+  const Y=v=>H-8-(v-mn)/(mx-mn)*(H-16),X=i=>i/(n-1)*(W-70);
+  x.clearRect(0,0,W,H);
+  const line=(arr,col,w=1.5)=>{x.beginPath();x.strokeStyle=col;x.lineWidth=w;let s=false;
+    arr.forEach((v,i)=>{if(v==null)return;s?x.lineTo(X(i),Y(v)):(x.moveTo(X(i),Y(v)),s=true)});x.stroke()};
+  line(R.up,"#3b5b78",1);line(R.lo,"#3b5b78",1);
+  line(R.s50,"#e9b44c",1.5);line(R.s20,"#7fb4ff",1.5);
+  [[R.lv&&R.lv.s,"#3ddc97"],[R.lv&&R.lv.r,"#ff6b6b"]].forEach(([v,col])=>{if(v&&v>=mn&&v<=mx){x.setLineDash([6,4]);x.strokeStyle=col;x.lineWidth=1;x.beginPath();x.moveTo(0,Y(v));x.lineTo(W-70,Y(v));x.stroke();x.setLineDash([])}});
+  const cw=Math.max(2,(W-70)/n*0.6);
+  sl.forEach((k,i)=>{const col=k.c>=k.o?"#3ddc97":"#ff6b6b";x.strokeStyle=col;x.fillStyle=col;x.lineWidth=1;
+    x.beginPath();x.moveTo(X(i),Y(k.h));x.lineTo(X(i),Y(k.l));x.stroke();
+    x.fillRect(X(i)-cw/2,Y(Math.max(k.o,k.c)),cw,Math.max(1,Math.abs(Y(k.o)-Y(k.c))))});
+  x.fillStyle="#8aa0b5";x.font="12px sans-serif";
+  x.fillText(fmt(mx),W-64,12);x.fillText(fmt(mn),W-64,H-2);
+  x.fillStyle="#e6edf3";x.fillText(fmt(R.last),W-64,Y(R.last)+4);
+}
+
+/* ---- Market panels ---- */
+async function getJ(path){
+  try{return await Promise.any(["https://api.binance.com","https://data-api.binance.vision"].map(h=>tryJ(h+path,6000)))}catch(e){return null}}
+async function market(){
+  const a=asset,A=ASSETS[a],s=A.sym;
+  const [t,b,f]=await Promise.all([
+    getJ(`/api/v3/ticker/24hr?symbol=${s}`),
+    getJ(`/api/v3/depth?symbol=${s}&limit=100`),
+    A.crypto?tryJ("https://api.alternative.me/fng/").catch(()=>null):null]);
+  const c=[];
+  if(t)c.push(["24h high","$"+fmt(+t.highPrice)],["24h low","$"+fmt(+t.lowPrice)],["24h change",(+t.priceChangePercent).toFixed(2)+"%"],["24h volume",fmt(+t.quoteVolume/1e6)+"M USD"],["Trades (24h)",fmt(+t.count)]);
+  if(b){const bv=b.bids.reduce((q,x)=>q+ +x[1],0),av=b.asks.reduce((q,x)=>q+ +x[1],0),p=bv/(bv+av)*100;
+    c.push(["Order book",p.toFixed(0)+"% buyers / "+(100-p).toFixed(0)+"% sellers"])}
+  if(a==="GOLD"){const g=await tryJ("https://api.gold-api.com/price/XAU").catch(()=>null);
+    if(g&&g.price)c.push(["Spot gold XAU (gold-api.com)","$"+fmt(+g.price)])}
+  if(f&&f.data)c.push(["Fear & Greed (crypto market)",f.data[0].value+" · "+f.data[0].value_classification]);
+  if(a!==asset)return;
+  setH("mkt",c.map(x=>`<div><small>${x[0]}</small>${x[1]}</div>`).join("")||"Market info unavailable right now.");
+}
+
+function zonesCalc(d,last,day){
+  const w=d.slice(-50);let hi=-Infinity,lo=Infinity;for(const k of w){if(k.h>hi)hi=k.h;if(k.l<lo)lo=k.l}
+  const sup=[lo],res=[hi];
+  if(day){const P=(day.h+day.l+day.c)/3;sup.push(2*P-day.h,P-(day.h-day.l));res.push(2*P-day.l,P+(day.h-day.l))}
+  const s=sup.filter(v=>v<last).sort((a,b)=>b-a)[0],r=res.filter(v=>v>last).sort((a,b)=>a-b)[0];
+  const pc=v=>((v/last-1)*100).toFixed(2)+"%";
+  setH("zones",
+    `<div><small>Buy zone (support)</small>${s?"$"+fmt(s)+" · "+pc(s):"None below price"}</div>`+
+    `<div><small>Sell zone (resistance)</small>${r?"$"+fmt(r)+" · +"+pc(r):"None above price"}</div>`+
+    `<div><small>50-bar range</small>$${fmt(lo)} to $${fmt(hi)}</div>`);
+  return{s,r};
+}
+async function mtf(){
+  const a=asset;
+  const out=await Promise.all(TFS.map(async t=>{try{const R=analyze(await fetchK(ASSETS[a].sym,t));return[t,R.action,R.score]}catch(e){return[t,"n/a",0]}}));
+  if(a!==asset)return;
+  const b=out.filter(o=>o[1]==="BUY").length,se=out.filter(o=>o[1]==="SELL").length,ok=out.filter(o=>o[1]!=="n/a").length;
+  setH("mtf",out.map(o=>`<li><span>${o[0]}</span><span class="${o[1]==="BUY"?"buy":o[1]==="SELL"?"sell":"hold"}">${o[1]} (${o[2]>0?"+":""}${o[2].toFixed(1)})</span></li>`).join("")+
+    `<li><span><b>Agreement</b></span><span>${b} buy · ${se} sell · ${ok-b-se} hold</span></li>`);
+  const bias=b>=3?"Strong BUY bias":b>se&&b>=2?"Mild BUY bias":se>=3?"Strong SELL bias":se>b&&se>=2?"Mild SELL bias":"Mixed, no clear edge";
+  setH("verdict",`Overall: <b class="${bias.includes("BUY")?"buy":bias.includes("SELL")?"sell":"hold"}">${bias}</b> (${b} of ${ok} timeframes buy, ${se} sell). Confirm with the TradingView gauge below before acting.`);
+}
+async function venues(){
+  const a=asset,A=ASSETS[a],f=x=>x==null||isNaN(x)?null:+x;
+  const src=[
+    ["Binance",async()=>{const j=await tryJ(`https://api.binance.com/api/v3/ticker/bookTicker?symbol=${A.sym}`);return[f(j.bidPrice),f(j.askPrice)]}],
+    ["Bybit",async()=>{const l=(await tryJ(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${A.sym}`)).result.list[0];return[f(l.bid1Price),f(l.ask1Price)]}],
+    ["OKX",async()=>{const l=(await tryJ(`https://www.okx.com/api/v5/market/ticker?instId=${A.base}-USDT`)).data[0];return[f(l.bidPx),f(l.askPx)]}],
+    ["Coinbase",async()=>{const j=await tryJ(`https://api.exchange.coinbase.com/products/${A.cb}/ticker`);return[f(j.bid),f(j.ask)]}],
+    ["Kraken",async()=>{const r=Object.values((await tryJ(`https://api.kraken.com/0/public/Ticker?pair=${A.kr}`)).result)[0];return[f(r.b[0]),f(r.a[0])]}],
+    ["KuCoin",async()=>{const l=(await tryJ(`https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=${A.base}-USDT`)).data;return[f(l.bestBid),f(l.bestAsk)]}]
+  ];
+  const res=await Promise.allSettled(src.map(async x=>[x[0],...await x[1]()]));
+  if(a!==asset)return;
+  const rows=res.filter(r=>r.status==="fulfilled"&&r.value[1]&&r.value[2]).map(r=>r.value);
+  if(!rows.length){setH("ex","<li>Exchange prices unavailable right now.</li>");setH("zv","");return}
+  const buy=rows.reduce((m,r)=>r[2]<m[2]?r:m),sell=rows.reduce((m,r)=>r[1]>m[1]?r:m);
+  setH("ex",rows.map(r=>`<li><span>${r[0]}</span><span>Buy $${fmt(r[2])} · Sell $${fmt(r[1])}</span></li>`).join(""));
+  setH("zv",`<div><small>Cheapest place to buy</small>${buy[0]} · $${fmt(buy[2])}</div><div><small>Best price to sell</small>${sell[0]} · $${fmt(sell[1])}</div><div><small>Gap across exchanges</small>${((sell[1]/buy[2]-1)*100).toFixed(2)}%</div>`);
+  setT("exn","Buy = lowest ask, Sell = highest bid, right now. Some pairs are USD, others USDT, so small gaps are normal. Fees, withdrawal costs, and whether you can legally and easily use an exchange from your country matter more than a tiny price gap. Not financial advice.");
+}
+
+/* ---- Alerts, history, risk ---- */
+let lastR=null,alertsOn=false;const lastAct={},pend={};
+function beep(){try{const c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();
+  o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=0.15;o.start();o.stop(c.currentTime+0.35)}catch(e){}}
+$("alertBtn").onclick=async()=>{
+  alertsOn=!alertsOn;
+  if(alertsOn){beep();try{if("Notification" in window&&Notification.permission==="default")await Notification.requestPermission()}catch(e){}}
+  $("alertBtn").textContent="🔔 Alerts: "+(alertsOn?"on":"off");$("alertBtn").className=alertsOn?"on":"";$("alertBtn").setAttribute("aria-pressed",alertsOn);
+};
+function getHist(){try{return JSON.parse(localStorage.getItem("sigHist")||"[]")}catch(e){return[]}}
+function showHist(){const h=getHist().slice(-10).reverse();
+  setH("hist",h.length?h.map(e=>`<li><span>${new Date(e.t).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})} · ${e.n} ${e.f}</span><span class="${e.a==="BUY"?"buy":e.a==="SELL"?"sell":"hold"}">${e.a} @ $${fmt(e.p)}</span></li>`).join(""):"<li>No changes yet</li>")}
+function track(R){
+  const key=asset+"-"+tf,prev=lastAct[key];let flip=false;
+  if(prev===undefined)lastAct[key]=R.action;else if(R.action===prev)pend[key]=null;
+  else if(pend[key]===R.action){lastAct[key]=R.action;pend[key]=null;flip=true}else pend[key]=R.action;
+  if(flip){
+    const nm=ASSETS[asset].short;
+    try{const h=getHist();h.push({t:Date.now(),n:nm,f:tf,a:R.action,p:R.last});localStorage.setItem("sigHist",JSON.stringify(h.slice(-50)))}catch(e){}
+    if(alertsOn){beep();try{if("Notification" in window&&Notification.permission==="granted")new Notification("ROZKHUN: "+R.action+" "+nm+" "+tf,{body:"Price $"+fmt(R.last)})}catch(e){}}
+  }
+  showHist();
+}
+function riskCalc(){
+  const R=lastR,bal=+$("bal").value,rk=+$("rk").value;
+  if(!R||R.action==="HOLD"){setH("rc","<li>No BUY or SELL setup right now, so there is nothing to size.</li>");setT("rcw","");return}
+  if(!(bal>0)||!(rk>0)){setH("rc","<li>Enter a balance and risk %.</li>");setT("rcw","");return}
+  const risk=bal*rk/100,dist=Math.abs(R.last-R.sl),units=risk/dist,pos=units*R.last,gain=units*Math.abs(R.tp-R.last);
+  setH("rc",`<li><span>Direction</span><span>${R.action==="BUY"?"Buy (long)":"Sell (short)"}</span></li>
+  <li><span>Money at risk</span><span>$${fmt(risk)}</span></li>
+  <li><span>Position size</span><span>${units.toFixed(units<1?5:3)} ($${fmt(pos)})</span></li>
+  <li><span>Loss if stop hit</span><span class="sell">−$${fmt(risk)}</span></li>
+  <li><span>Gain if target hit</span><span class="buy">+$${fmt(gain)}</span></li>`);
+  setT("rcw",pos>bal?"This position is larger than your balance, so it would need leverage or margin. Lower the risk % to stay within your money.":"");
+}
+$("bal").oninput=riskCalc;$("rk").oninput=riskCalc;
+
+/* ---- Next 15 minutes ---- */
+let outBusy=false;
+function score15(a,price,verdict){
+  const now=Date.now();let sc={w:0,l:0},pr=null;
+  try{sc=JSON.parse(localStorage.getItem("o15sc")||'{"w":0,"l":0}');pr=JSON.parse(localStorage.getItem("o15p")||"null")}catch(e){}
+  if(pr&&now-pr.t>3.6e6)pr=null;
+  if(pr&&pr.a===a&&now-pr.t>=9e5){const win=pr.v==="BUY"?price>pr.p:price<pr.p;win?sc.w++:sc.l++;pr=null}
+  if(!pr&&(verdict==="BUY"||verdict==="SELL"))pr={t:now,p:price,v:verdict,a};
+  try{localStorage.setItem("o15sc",JSON.stringify(sc));pr?localStorage.setItem("o15p",JSON.stringify(pr)):localStorage.removeItem("o15p")}catch(e){}
+  return{sc,pr};
+}
+async function outlook(){
+  if(outBusy)return;outBusy=true;const a=asset,sym=ASSETS[a].sym,H=15,W=120;
+  try{
+    const [d,d5,d15]=await Promise.all([fetchK(sym,"1m",1000),fetchK(sym,"5m"),fetchK(sym,"15m")]);
+    if(a!==asset)return;
+    const rows=[];for(let i=W;i<d.length-H;i++)rows.push([analyze(d.slice(i-W+1,i+1)).action,d[i+H].c/d[i].c-1]);
+    const cur=analyze(d.slice(-W)),a5=analyze(d5).action,a15=analyze(d15).action,price=d[d.length-1].c;
+    const base=rows.filter(x=>x[1]>0).length/rows.length;
+    const mean=rows.reduce((q,x)=>q+x[1],0)/rows.length,sd=Math.sqrt(rows.reduce((q,x)=>q+(x[1]-mean)**2,0)/rows.length);
+    const sel=rows.filter(x=>x[0]===cur.action),up=sel.filter(x=>x[1]>0).length/(sel.length||1);
+    const hit=cur.action==="BUY"?up:1-up;
+    const edge=cur.action==="BUY"?up-base:cur.action==="SELL"?base-up:0,opp=cur.action==="BUY"?"SELL":"BUY";
+    let v="WAIT",why="";
+    if(cur.action==="HOLD")why="The 1-minute signal is HOLD, so there is no setup.";
+    else if(sel.length<20)why="Too few past examples of this signal to trust it.";
+    else if(edge<0.05)why="In the recent past this signal did not beat chance over 15 minutes.";
+    else if(a5===opp||a15===opp)why="The 5-minute or 15-minute signal disagrees.";
+    else{v=cur.action;why="1m, 5m and 15m do not disagree, and this signal beat chance in recent history."}
+    const S=score15(a,price,v);
+    const cls=v==="BUY"?"buy":v==="SELL"?"sell":"hold",c=x=>x==="BUY"?"buy":x==="SELL"?"sell":"hold";
+    setC("o15v",cls);setT("o15v",v==="WAIT"?"WAIT":"Lean "+v);
+    setT("o15t",why);
+    const pc=(sd*100).toFixed(2),tm=t=>new Date(t).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+    setH("o15",
+      `<div><small>Signals now (1m / 5m / 15m)</small><span class="${c(cur.action)}">${cur.action}</span> / <span class="${c(a5)}">${a5}</span> / <span class="${c(a15)}">${a15}</span></div>`+
+      `<div><small>Past results of "${cur.action}" on 1m</small>${cur.action==="HOLD"?"n/a":(hit*100).toFixed(0)+"% moved "+(cur.action==="BUY"?"up":"down")+" in 15 min ("+sel.length+" times)"}</div>`+
+      `<div><small>Chance baseline (any minute)</small>${(base*100).toFixed(0)}% went up in 15 min</div>`+
+      `<div><small>Typical 15-minute move</small>±$${fmt(price*sd)} (±${pc}%)</div>`+
+      `<div><small>Live scorecard (this browser)</small>${S.sc.w} right · ${S.sc.l} wrong${S.sc.w+S.sc.l?" ("+Math.round(S.sc.w/(S.sc.w+S.sc.l)*100)+"%)":""}</div>`+
+      `<div><small>Open call</small>${S.pr?S.pr.v+" from $"+fmt(S.pr.p)+" at "+tm(S.pr.t)+", result at "+tm(S.pr.t+9e5):"none"}</div>`);
+    setT("o15n","This is a statistical lean from the last "+Math.round(rows.length/60)+" hours of 1-minute data, not a prediction. Past hit rates often fade, and 15 minutes is mostly noise. The scorecard counts only calls made while this page is open.");
+  }catch(e){setC("o15v","hold");setT("o15v","No data");setT("o15t","Could not load 1-minute data.")}
+  finally{outBusy=false}
+}
+
+function demoData(){
+  let p=ASSETS[asset].p0,t=Date.now();const d=[];
+  for(let i=0;i<300;i++){const o=p;p*=1+(Math.random()-0.48)*0.006;d.push({t:t-(300-i)*36e5,o,h:Math.max(o,p)*1.001,l:Math.min(o,p)*0.999,c:p})}
+  return d}
+
+/* ---- Main render ---- */
+function render(d,isLive,day,fastPass){
+  const R=analyze(d,true);
+  setT("name",ASSETS[asset].name+" · "+tf+(isLive?"":" · DEMO DATA, NOT REAL"));
+  setT("price","$"+fmt(R.last));
+  if(isLive&&day){const p=(R.last/day.c-1)*100;setT("chg",(p>=0?"▲ ":"▼ ")+Math.abs(p).toFixed(2)+"% vs yesterday close");setC("chg","chg "+(p>=0?"buy":"sell"))}
+  else setT("chg","");
+  const cls=R.action==="BUY"?"buy":R.action==="SELL"?"sell":"hold";
+  setT("sig",R.action);setC("sig","sig "+cls);
+  const nl=Math.max(0,Math.min(100,50+R.score/5.5*50))+"%";if(dc.nl!==nl){dc.nl=nl;$("needle").style.left=nl}
+  setT("conf","Confidence "+R.conf+"% · score "+R.score.toFixed(1)+" (range −5.5 to +5.5)");
+  setH("lv",R.action==="HOLD"?
+    `<div><small>Action</small>Wait for a clearer setup</div><div><small>Volatility (ATR)</small>$${fmt(R.a)}</div><div><small>RSI</small>${R.rsi.toFixed(1)}</div>`:
+    `<div><small>Entry</small>$${fmt(R.last)}</div><div><small>Stop loss</small>$${fmt(R.sl)}</div><div><small>Take profit</small>$${fmt(R.tp)}</div>`);
+  setH("why",R.why.map(w=>`<li><span>${w.label}</span><span class="${w.pts>0?"buy":w.pts<0?"sell":"hold"}">${w.val}</span></li>`).join(""));
+  R.lv=zonesCalc(d,R.last,isLive?day:null);
+  lastR=isLive?R:null;riskCalc();if(isLive&&!fastPass)track(R);
+  draw(d,R);
+}
+
+async function load(){
+  clearTimeout(timer);
+  if(document.hidden){timer=setTimeout(load,15000);return}
+  if(!live){setT("status","Fetching live data (up to 6 seconds)…");setC("status","note")}
+  try{
+    const a=asset,t=tf;
+    const d=await fetchK(ASSETS[a].sym,t);
+    const day=tf==="1d"?d.at(-2):await fetchK(ASSETS[a].sym,"1d").then(k=>k.at(-2)).catch(()=>null);
+    if(a!==asset||t!==tf)return;
+    live={d:d.map(k=>({...k})),day};render(live.d,true,day);
+    if(tick++%2===0){market();venues();mtf();outlook()} // slower panels refresh every 30 s
+    setLive();
+  }catch(e){
+    live=null;render(demoData(),false);
+    setT("mkt","Market info unavailable (no connection to market servers).");
+    setH("status","<b>No live data.</b> The page works, but it can't reach Binance, Bybit or OKX from your network. Showing DEMO data only, not real prices. Try: open the file in Chrome/Edge, turn on a VPN, or check your internet. Retrying every 15 s.");
+    setC("status","note err");
+  }
+  timer=setTimeout(load,15000);
+}
+
+const LEGEND="candles: price, blue: SMA 20, gold: SMA 50, grey: Bollinger, dashed green: support, dashed red: resistance";
+function setLive(){setC("status","note");$("status").textContent="LIVE · price updated "+new Date().toLocaleTimeString()+" · price refreshes every 1 s, signals every 15 s, market panels every 30 s · "+LEGEND;dc.status=null}
+async function livePrice(a){
+  const A=ASSETS[a],sym=A.sym,T=2500;
+  const S=[
+    async()=>+(await tryJ(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}`,T)).price,
+    async()=>+(await tryJ(`https://data-api.binance.vision/api/v3/ticker/price?symbol=${sym}`,T)).price,
+    async()=>+(await tryJ(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${sym}`,T)).result.list[0].lastPrice,
+    async()=>+(await tryJ(`https://www.okx.com/api/v5/market/ticker?instId=${A.base}-USDT`,T)).data[0].last
+  ];
+  try{const p=await S[goodP]();if(p>0)return p}catch(e){}
+  return await Promise.any(S.map((f,i)=>f().then(p=>{if(!(p>0))throw 0;goodP=i;return p})));
+}
+async function fast(){
+  if(busy||!live||document.hidden)return;busy=true;const a=asset,t=tf,L=live;
+  try{
+    const p=await livePrice(a);if(a!==asset||t!==tf||L!==live)return;
+    const k=L.d[L.d.length-1];if(p===k.c)return; // price unchanged: nothing to redraw
+    k.c=p;k.h=Math.max(k.h,p);k.l=Math.min(k.l,p);
+    render(L.d,true,L.day,true);setLive();
+  }catch(e){}finally{busy=false}
+}
+setInterval(fast,1000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)load()});
+window.onerror=(m,u,l)=>{$("status").textContent="Script error: "+m+" (line "+l+")";$("status").className="note err";dc.status=null;dc.cstatus=null};
+showHist();load();tvLoad();
+</script>
+</body>
+</html>
