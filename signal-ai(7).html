@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signal AI – BTC & Gold</title>
+<style>
+:root{--bg:#0d1b2a;--panel:#14283c;--line:#25405a;--text:#e6edf3;--mute:#8aa0b5;--buy:#3ddc97;--sell:#ff6b6b;--hold:#e9b44c;--r:10px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Segoe UI",system-ui,sans-serif;padding:16px;max-width:980px;margin-inline:auto}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--mute);margin:0 0 16px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+button{background:var(--panel);color:var(--text);border:1px solid var(--line);padding:8px 14px;border-radius:8px;font:inherit;cursor:pointer}
+button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+button:focus-visible{outline:2px solid var(--hold);outline-offset:2px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.price{font-size:30px;font-weight:700}
+.chg{font-size:14px}
+.sig{font-size:44px;font-weight:800;letter-spacing:1px;margin:4px 0}
+.buy{color:var(--buy)}.sell{color:var(--sell)}.hold{color:var(--hold)}
+.meter{height:8px;background:var(--bg);border-radius:4px;position:relative;margin:8px 0 14px}
+.meter i{position:absolute;top:-3px;width:4px;height:14px;background:var(--text);border-radius:2px;transition:left .4s}
+ul{margin:0;padding:0;list-style:none}
+li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+li:last-child{border:0}
+li span:last-child{font-weight:600;white-space:nowrap}
+canvas{width:100%;height:320px;display:block}
+.lv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.lv div{background:var(--bg);border-radius:8px;padding:8px}
+.lv small{color:var(--mute);display:block}
+.err{color:var(--sell)}
+input{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit}
+label small{color:var(--mute);display:block;margin-bottom:2px}
+.warn{color:var(--hold);font-size:13px;margin-top:8px}
+.note{color:var(--mute);font-size:12.5px;margin-top:14px}
+</style>
+</head>
+<body>
+<h1>Signal AI</h1>
+<p class="sub">Live technical analysis with a buy / sell / hold signal for Bitcoin and Gold.</p>
+
+<div class="bar" id="assets"></div>
+<div class="bar" id="tfs"></div>
+<div class="bar"><button id="alertBtn" aria-pressed="false">🔔 Alerts: off</button></div>
+
+<div class="grid">
+  <div class="card">
+    <div id="name" style="color:var(--mute)">Loading…</div>
+    <div class="price" id="price">–</div>
+    <div class="chg" id="chg"></div>
+    <div class="sig hold" id="sig">…</div>
+    <div class="meter"><i id="needle" style="left:50%"></i></div>
+    <div id="conf" style="color:var(--mute)"></div>
+    <div class="lv" id="lv"></div>
+  </div>
+  <div class="card">
+    <b>Why this signal</b>
+    <ul id="why"></ul>
+  </div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <b>Market information</b>
+  <div class="lv" id="mkt" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">Loading…</div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <b>Where to act</b>
+  <div id="verdict" style="margin:6px 0 10px;color:var(--mute)">Checking all timeframes…</div>
+  <div class="lv" id="zones" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))"></div>
+  <div class="lv" id="zv" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))"></div>
+</div>
+
+<div class="grid" style="margin-top:14px">
+  <div class="card"><b>All timeframes</b><ul id="mtf"><li>Loading…</li></ul></div>
+  <div class="card"><b>Buy / sell price by exchange</b><ul id="ex"><li>Loading…</li></ul>
+    <div class="note" id="exn"></div></div>
+</div>
+
+<div class="grid" style="margin-top:14px">
+  <div class="card"><b>Risk calculator</b>
+    <div class="lv" style="grid-template-columns:1fr 1fr">
+      <label><small>Account balance (USD)</small><input id="bal" type="number" value="1000" min="1"></label>
+      <label><small>Risk per trade (%)</small><input id="rk" type="number" value="1" min="0.1" max="10" step="0.1"></label>
+    </div>
+    <ul id="rc" style="margin-top:8px"><li>Waiting for a signal…</li></ul>
+    <div class="warn" id="rcw"></div>
+  </div>
+  <div class="card"><b>Signal history</b>
+    <ul id="hist"><li>No changes yet</li></ul>
+    <div class="note">Logged whenever the signal changes while this page is open. Saved in this browser only.</div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <b>Second opinion: TradingView</b>
+  <p class="note" style="margin:4px 0 8px">TradingView's own summary of 26 indicators and 11 moving averages for the same timeframe. Compare it with the signal above.</p>
+  <div id="tv-ta" style="min-height:420px"></div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <b>Latest market news</b>
+  <div id="tv-news" style="min-height:420px;margin-top:8px"></div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <canvas id="cv" width="900" height="320"></canvas>
+  <div id="status" class="note"></div>
+</div>
+
+<p class="note">Educational tool, not financial advice. Signals come from rule-based indicators (SMA, EMA/MACD, RSI, Bollinger Bands, momentum) and cannot predict the market. Gold uses PAXG (tokenized gold, tracks the spot gold price) from Binance public data. Never risk money you can't afford to lose.</p>
+
+<script>
+const ASSETS={BTC:{sym:"BTCUSDT",name:"Bitcoin (BTC/USD)"},GOLD:{sym:"PAXGUSDT",name:"Gold (XAU/USD via PAXG)"}};
+const TFS=["15m","1h","4h","1d"];
+let asset="BTC",tf="1h",timer;
+const $=id=>document.getElementById(id);
+
+function mk(box,items,get,set){
+  $(box).innerHTML="";
+  items.forEach(k=>{const b=document.createElement("button");b.textContent=k;
+    b.className=get()===k?"on":"";b.onclick=()=>{tick=0;set(k);mk(box,items,get,set);load();tvLoad()};$(box).append(b)});
+}
+mk("assets",Object.keys(ASSETS),()=>asset,v=>asset=v);
+mk("tfs",TFS,()=>tf,v=>tf=v);
+
+
+function tvWidget(box,file,cfg){
+  const el=$(box);el.innerHTML="";
+  const wrap=document.createElement("div");wrap.className="tradingview-widget-container";
+  const inner=document.createElement("div");inner.className="tradingview-widget-container__widget";wrap.appendChild(inner);
+  const sc=document.createElement("script");sc.src="https://s3.tradingview.com/external-embedding/"+file;sc.async=true;
+  sc.textContent=JSON.stringify(Object.assign({width:"100%",colorTheme:"dark",isTransparent:true,locale:"en"},cfg));
+  wrap.appendChild(sc);el.appendChild(wrap);
+}
+function tvLoad(){
+  const sym=asset==="BTC"?"BINANCE:BTCUSDT":"OANDA:XAUUSD";
+  const iv={"15m":"15m","1h":"1h","4h":"4h","1d":"1D"}[tf];
+  tvWidget("tv-ta","embed-widget-technical-analysis.js",{symbol:sym,interval:iv,height:420,showIntervalTabs:true,displayMode:"single"});
+  tvWidget("tv-news","embed-widget-timeline.js",{feedMode:"symbol",symbol:sym,displayMode:"regular",height:420});
+}
+
+async function tryJ(url,ms=6000){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);
+  try{const r=await fetch(url,{signal:c.signal});if(!r.ok)throw new Error(r.status);return await r.json()}finally{clearTimeout(t)}}
+async function fetchK(sym,iv){
+  const base=sym.replace("USDT","");
+  const by={"15m":"15","1h":"60","4h":"240","1d":"D"}[iv],ok={"15m":"15m","1h":"1H","4h":"4H","1d":"1D"}[iv];
+  const sources=[
+    async()=>(await tryJ(`https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${iv}&limit=300`)).map(k=>({t:k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4]})),
+    async()=>(await tryJ(`https://data-api.binance.vision/api/v3/klines?symbol=${sym}&interval=${iv}&limit=300`)).map(k=>({t:k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4]})),
+    async()=>(await tryJ(`https://api.bybit.com/v5/market/kline?category=spot&symbol=${sym}&interval=${by}&limit=300`)).result.list.reverse().map(k=>({t:+k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4]})),
+    async()=>(await tryJ(`https://www.okx.com/api/v5/market/candles?instId=${base}-USDT&bar=${ok}&limit=300`)).data.reverse().map(k=>({t:+k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4]}))
+  ];
+  try{return await Promise.any(sources.map(async f=>{const d=await f();if(!d||d.length<60)throw 0;return d}))}
+  catch(e){throw new Error("Cannot reach any market data server (Binance, Bybit, OKX).")}
+}
+
+const sma=(a,n)=>a.map((_,i)=>i<n-1?null:a.slice(i-n+1,i+1).reduce((x,y)=>x+y,0)/n);
+function ema(a,n){const k=2/(n+1);let e=a[0];return a.map((v,i)=>i?(e=v*k+e*(1-k)):e)}
+function rsi(c,n=14){let g=0,l=0;for(let i=1;i<=n;i++){const d=c[i]-c[i-1];d>0?g+=d:l-=d}
+  g/=n;l/=n;for(let i=n+1;i<c.length;i++){const d=c[i]-c[i-1];g=(g*(n-1)+Math.max(d,0))/n;l=(l*(n-1)+Math.max(-d,0))/n}
+  return l===0?100:100-100/(1+g/l)}
+function atr(d,n=14){const tr=d.map((x,i)=>i?Math.max(x.h-x.l,Math.abs(x.h-d[i-1].c),Math.abs(x.l-d[i-1].c)):x.h-x.l);
+  return tr.slice(-n).reduce((a,b)=>a+b,0)/n}
+const fmt=v=>v.toLocaleString("en-US",{maximumFractionDigits:v>1000?0:2});
+
+function analyze(d){
+  const c=d.map(x=>x.c),last=c.at(-1);
+  const s20=sma(c,20),s50=sma(c,50),e12=ema(c,12),e26=ema(c,26);
+  const macd=e12.map((v,i)=>v-e26[i]),sig=ema(macd,9),hist=macd.at(-1)-sig.at(-1),histPrev=macd.at(-2)-sig.at(-2);
+  const r=rsi(c),a=atr(d);
+  const m=s20.at(-1),sd=Math.sqrt(c.slice(-20).reduce((s,v)=>s+(v-m)**2,0)/20),up=m+2*sd,lo=m-2*sd;
+  const pos=(last-lo)/(up-lo);
+  const mom=(last/c.at(-11)-1)*100;
+  const why=[];let score=0;
+  const add=(pts,label,val)=>{score+=pts;why.push({pts,label,val})};
+
+  add(last>s50.at(-1)?1:-1,"Price vs SMA 50",last>s50.at(-1)?"Above (bullish)":"Below (bearish)");
+  add(s20.at(-1)>s50.at(-1)?1:-1,"SMA 20 vs SMA 50",s20.at(-1)>s50.at(-1)?"Uptrend":"Downtrend");
+  add(hist>0?(hist>histPrev?1:0.5):(hist<histPrev?-1:-0.5),"MACD histogram",hist>0?"Positive"+(hist>histPrev?", rising":", fading"):"Negative"+(hist<histPrev?", falling":", recovering"));
+  add(r<30?1.5:r<45?0.5:r>70?-1.5:r>60?-0.5:0,"RSI (14)",r.toFixed(1)+(r<30?" oversold":r>70?" overbought":""));
+  add(pos<0.1?1:pos>0.9?-1:0,"Bollinger position",(pos*100).toFixed(0)+"% of band"+(pos<0.1?" (near lower)":pos>0.9?" (near upper)":""));
+  add(mom>1?0.5:mom<-1?-0.5:0,"Momentum (10 bars)",(mom>0?"+":"")+mom.toFixed(2)+"%");
+
+  const action=score>=2?"BUY":score<=-2?"SELL":"HOLD";
+  return{last,score,action,why,a,rsi:r,
+    conf:Math.min(100,Math.round(Math.abs(score)/5.5*100)),
+    sl:action==="SELL"?last+1.5*a:last-1.5*a,
+    tp:action==="SELL"?last-3*a:last+3*a,
+    s20,s50,up:c.map((_,i)=>{if(i<19)return null;const w=c.slice(i-19,i+1),mm=w.reduce((x,y)=>x+y,0)/20;return mm+2*Math.sqrt(w.reduce((s,v)=>s+(v-mm)**2,0)/20)}),
+    lo:c.map((_,i)=>{if(i<19)return null;const w=c.slice(i-19,i+1),mm=w.reduce((x,y)=>x+y,0)/20;return mm-2*Math.sqrt(w.reduce((s,v)=>s+(v-mm)**2,0)/20)})};
+}
+
+function draw(d,R){
+  const cv=$("cv"),x=cv.getContext("2d"),W=cv.width,H=cv.height,n=100;
+  const sl=d.slice(-n),off=d.length-n;
+  const vals=sl.flatMap(k=>[k.h,k.l]).concat(R.up.slice(-n).filter(v=>v),R.lo.slice(-n).filter(v=>v));
+  const mn=Math.min(...vals),mx=Math.max(...vals),Y=v=>H-8-(v-mn)/(mx-mn)*(H-16),X=i=>i/(n-1)*(W-70);
+  x.clearRect(0,0,W,H);
+  const line=(arr,col,w=1.5)=>{x.beginPath();x.strokeStyle=col;x.lineWidth=w;let s=false;
+    arr.slice(-n).forEach((v,i)=>{if(v==null)return;s?x.lineTo(X(i),Y(v)):(x.moveTo(X(i),Y(v)),s=true)});x.stroke()};
+  line(R.up,"#3b5b78",1);line(R.lo,"#3b5b78",1);
+  line(R.s50,"#e9b44c",1.5);line(R.s20,"#7fb4ff",1.5);
+  [[R.lv&&R.lv.s,"#3ddc97"],[R.lv&&R.lv.r,"#ff6b6b"]].forEach(([v,col])=>{if(v&&v>=mn&&v<=mx){x.setLineDash([6,4]);x.strokeStyle=col;x.lineWidth=1;x.beginPath();x.moveTo(0,Y(v));x.lineTo(W-70,Y(v));x.stroke();x.setLineDash([])}});
+  const cw=Math.max(2,(W-70)/n*0.6);
+  sl.forEach((k,i)=>{const col=k.c>=k.o?"#3ddc97":"#ff6b6b";x.strokeStyle=col;x.fillStyle=col;x.lineWidth=1;
+    x.beginPath();x.moveTo(X(i),Y(k.h));x.lineTo(X(i),Y(k.l));x.stroke();
+    x.fillRect(X(i)-cw/2,Y(Math.max(k.o,k.c)),cw,Math.max(1,Math.abs(Y(k.o)-Y(k.c))))});
+  x.fillStyle="#8aa0b5";x.font="12px sans-serif";
+  x.fillText(fmt(mx),W-64,12);x.fillText(fmt(mn),W-64,H-2);
+  x.fillStyle="#e6edf3";x.fillText(fmt(R.last),W-64,Y(R.last)+4);
+}
+
+async function getJ(path){
+  try{return await Promise.any(["https://api.binance.com","https://data-api.binance.vision"].map(h=>tryJ(h+path,6000)))}catch(e){return null}}
+async function market(){
+  const s=ASSETS[asset].sym;
+  const [t,b,f]=await Promise.all([
+    getJ(`/api/v3/ticker/24hr?symbol=${s}`),
+    getJ(`/api/v3/depth?symbol=${s}&limit=100`),
+    asset==="BTC"?tryJ("https://api.alternative.me/fng/").catch(()=>null):null]);
+  const c=[];
+  if(t)c.push(["24h high","$"+fmt(+t.highPrice)],["24h low","$"+fmt(+t.lowPrice)],["24h change",(+t.priceChangePercent).toFixed(2)+"%"],["24h volume",fmt(+t.quoteVolume/1e6)+"M USD"],["Trades (24h)",fmt(+t.count)]);
+  if(b){const bv=b.bids.reduce((a,x)=>a+ +x[1],0),av=b.asks.reduce((a,x)=>a+ +x[1],0),p=bv/(bv+av)*100;
+    c.push(["Order book",p.toFixed(0)+"% buyers / "+(100-p).toFixed(0)+"% sellers"])}
+  if(asset==="GOLD"){const g=await tryJ("https://api.gold-api.com/price/XAU").catch(()=>null);
+    if(g&&g.price)c.push(["Spot gold XAU (gold-api.com)","$"+fmt(+g.price)])}
+  if(f&&f.data)c.push(["Fear & Greed",f.data[0].value+" · "+f.data[0].value_classification]);
+  $("mkt").innerHTML=c.map(x=>`<div><small>${x[0]}</small>${x[1]}</div>`).join("")||"Market info unavailable right now.";
+}
+
+
+let tick=0;
+function zonesCalc(d,last,day){
+  const w=d.slice(-50),hi=Math.max(...w.map(k=>k.h)),lo=Math.min(...w.map(k=>k.l));
+  const sup=[lo],res=[hi];
+  if(day){const P=(day.h+day.l+day.c)/3;sup.push(2*P-day.h,P-(day.h-day.l));res.push(2*P-day.l,P+(day.h-day.l))}
+  const s=sup.filter(v=>v<last).sort((a,b)=>b-a)[0],r=res.filter(v=>v>last).sort((a,b)=>a-b)[0];
+  const pc=v=>((v/last-1)*100).toFixed(2)+"%";
+  $("zones").innerHTML=
+    `<div><small>Buy zone (support)</small>${s?"$"+fmt(s)+" · "+pc(s):"None below price"}</div>`+
+    `<div><small>Sell zone (resistance)</small>${r?"$"+fmt(r)+" · +"+pc(r):"None above price"}</div>`+
+    `<div><small>50-bar range</small>$${fmt(lo)} to $${fmt(hi)}</div>`;
+  return{s,r};
+}
+async function mtf(){
+  const a=asset;
+  const out=await Promise.all(TFS.map(async t=>{try{const R=analyze(await fetchK(ASSETS[a].sym,t));return[t,R.action,R.score]}catch(e){return[t,"n/a",0]}}));
+  if(a!==asset)return;
+  const b=out.filter(o=>o[1]==="BUY").length,se=out.filter(o=>o[1]==="SELL").length,ok=out.filter(o=>o[1]!=="n/a").length;
+  $("mtf").innerHTML=out.map(o=>`<li><span>${o[0]}</span><span class="${o[1]==="BUY"?"buy":o[1]==="SELL"?"sell":"hold"}">${o[1]} (${o[2]>0?"+":""}${o[2].toFixed(1)})</span></li>`).join("")+
+    `<li><span><b>Agreement</b></span><span>${b} buy · ${se} sell · ${ok-b-se} hold</span></li>`;
+  const bias=b>=3?"Strong BUY bias":b>se&&b>=2?"Mild BUY bias":se>=3?"Strong SELL bias":se>b&&se>=2?"Mild SELL bias":"Mixed, no clear edge";
+  $("verdict").innerHTML=`Overall: <b class="${bias.includes("BUY")?"buy":bias.includes("SELL")?"sell":"hold"}">${bias}</b> (${b} of ${ok} timeframes buy, ${se} sell). Confirm with the TradingView gauge below before acting.`;
+}
+async function venues(){
+  const a=asset,B=a==="BTC",f=x=>x==null||isNaN(x)?null:+x;
+  const src=[
+    ["Binance",async()=>{const j=await tryJ(`https://api.binance.com/api/v3/ticker/bookTicker?symbol=${ASSETS[a].sym}`);return[f(j.bidPrice),f(j.askPrice)]}],
+    ["Bybit",async()=>{const l=(await tryJ(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${ASSETS[a].sym}`)).result.list[0];return[f(l.bid1Price),f(l.ask1Price)]}],
+    ["OKX",async()=>{const l=(await tryJ(`https://www.okx.com/api/v5/market/ticker?instId=${B?"BTC":"PAXG"}-USDT`)).data[0];return[f(l.bidPx),f(l.askPx)]}],
+    ["Coinbase",async()=>{const j=await tryJ(`https://api.exchange.coinbase.com/products/${B?"BTC":"PAXG"}-USD/ticker`);return[f(j.bid),f(j.ask)]}],
+    ["Kraken",async()=>{const r=Object.values((await tryJ(`https://api.kraken.com/0/public/Ticker?pair=${B?"XBTUSD":"PAXGUSD"}`)).result)[0];return[f(r.b[0]),f(r.a[0])]}],
+    ["KuCoin",async()=>{const l=(await tryJ(`https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=${B?"BTC":"PAXG"}-USDT`)).data;return[f(l.bestBid),f(l.bestAsk)]}]
+  ];
+  const res=await Promise.allSettled(src.map(async x=>[x[0],...await x[1]()]));
+  if(a!==asset)return;
+  const rows=res.filter(r=>r.status==="fulfilled"&&r.value[1]&&r.value[2]).map(r=>r.value);
+  if(!rows.length){$("ex").innerHTML="<li>Exchange prices unavailable right now.</li>";$("zv").innerHTML="";return}
+  const buy=rows.reduce((m,r)=>r[2]<m[2]?r:m),sell=rows.reduce((m,r)=>r[1]>m[1]?r:m);
+  $("ex").innerHTML=rows.map(r=>`<li><span>${r[0]}</span><span>Buy $${fmt(r[2])} · Sell $${fmt(r[1])}</span></li>`).join("");
+  $("zv").innerHTML=`<div><small>Cheapest place to buy</small>${buy[0]} · $${fmt(buy[2])}</div><div><small>Best price to sell</small>${sell[0]} · $${fmt(sell[1])}</div><div><small>Gap across exchanges</small>${((sell[1]/buy[2]-1)*100).toFixed(2)}%</div>`;
+  $("exn").textContent="Buy = lowest ask, Sell = highest bid, right now. Some pairs are USD, others USDT, so small gaps are normal. Fees, withdrawal costs, and whether you can legally and easily use an exchange from your country matter more than a tiny price gap. Not financial advice.";
+}
+
+
+let lastR=null,alertsOn=false;const lastAct={};
+function beep(){try{const c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();
+  o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=0.15;o.start();o.stop(c.currentTime+0.35)}catch(e){}}
+$("alertBtn").onclick=async()=>{
+  alertsOn=!alertsOn;
+  if(alertsOn){beep();try{if("Notification" in window&&Notification.permission==="default")await Notification.requestPermission()}catch(e){}}
+  $("alertBtn").textContent="🔔 Alerts: "+(alertsOn?"on":"off");$("alertBtn").className=alertsOn?"on":"";$("alertBtn").setAttribute("aria-pressed",alertsOn);
+};
+function getHist(){try{return JSON.parse(localStorage.getItem("sigHist")||"[]")}catch(e){return[]}}
+function showHist(){const h=getHist().slice(-10).reverse();
+  $("hist").innerHTML=h.length?h.map(e=>`<li><span>${new Date(e.t).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})} · ${e.n} ${e.f}</span><span class="${e.a==="BUY"?"buy":e.a==="SELL"?"sell":"hold"}">${e.a} @ $${fmt(e.p)}</span></li>`).join(""):"<li>No changes yet</li>"}
+function track(R){
+  const key=asset+"-"+tf,prev=lastAct[key];lastAct[key]=R.action;
+  if(prev&&prev!==R.action){
+    try{const h=getHist();h.push({t:Date.now(),n:asset==="BTC"?"Bitcoin":"Gold",f:tf,a:R.action,p:R.last});localStorage.setItem("sigHist",JSON.stringify(h.slice(-50)))}catch(e){}
+    if(alertsOn){beep();try{if("Notification" in window&&Notification.permission==="granted")new Notification("Signal AI: "+R.action+" "+(asset==="BTC"?"Bitcoin":"Gold")+" "+tf,{body:"Price $"+fmt(R.last)})}catch(e){}}
+  }
+  showHist();
+}
+function riskCalc(){
+  const R=lastR,bal=+$("bal").value,rk=+$("rk").value;$("rcw").textContent="";
+  if(!R||R.action==="HOLD"){$("rc").innerHTML="<li>No BUY or SELL setup right now, so there is nothing to size.</li>";return}
+  if(!(bal>0)||!(rk>0)){$("rc").innerHTML="<li>Enter a balance and risk %.</li>";return}
+  const risk=bal*rk/100,dist=Math.abs(R.last-R.sl),units=risk/dist,pos=units*R.last,gain=units*Math.abs(R.tp-R.last);
+  $("rc").innerHTML=`<li><span>Direction</span><span>${R.action==="BUY"?"Buy (long)":"Sell (short)"}</span></li>
+  <li><span>Money at risk</span><span>$${fmt(risk)}</span></li>
+  <li><span>Position size</span><span>${units.toFixed(units<1?5:3)} (${"$"+fmt(pos)})</span></li>
+  <li><span>Loss if stop hit</span><span class="sell">−$${fmt(risk)}</span></li>
+  <li><span>Gain if target hit</span><span class="buy">+$${fmt(gain)}</span></li>`;
+  if(pos>bal)$("rcw").textContent="This position is larger than your balance, so it would need leverage or margin. Lower the risk % to stay within your money.";
+}
+$("bal").oninput=riskCalc;$("rk").oninput=riskCalc;
+
+function demoData(){
+  let p=asset==="BTC"?90000:4000,t=Date.now();const d=[];
+  for(let i=0;i<300;i++){const o=p;p*=1+(Math.random()-0.48)*0.006;d.push({t:t-(300-i)*36e5,o,h:Math.max(o,p)*1.001,l:Math.min(o,p)*0.999,c:p})}
+  return d}
+
+function render(d,live,day){
+  const R=analyze(d);
+  $("name").textContent=ASSETS[asset].name+" · "+tf+(live?"":" · DEMO DATA, NOT REAL");
+  $("price").textContent="$"+fmt(R.last);
+  $("chg").textContent="";
+  if(live&&day){const p=(R.last/day.c-1)*100;$("chg").textContent=(p>=0?"▲ ":"▼ ")+Math.abs(p).toFixed(2)+"% vs yesterday close";$("chg").className="chg "+(p>=0?"buy":"sell")}
+  const cls=R.action==="BUY"?"buy":R.action==="SELL"?"sell":"hold";
+  $("sig").textContent=R.action;$("sig").className="sig "+cls;
+  $("needle").style.left=Math.max(0,Math.min(100,50+R.score/5.5*50))+"%";
+  $("conf").textContent="Confidence "+R.conf+"% · score "+R.score.toFixed(1)+" (range −5.5 to +5.5)";
+  $("lv").innerHTML=R.action==="HOLD"?
+    `<div><small>Action</small>Wait for a clearer setup</div><div><small>Volatility (ATR)</small>$${fmt(R.a)}</div><div><small>RSI</small>${R.rsi.toFixed(1)}</div>`:
+    `<div><small>Entry</small>$${fmt(R.last)}</div><div><small>Stop loss</small>$${fmt(R.sl)}</div><div><small>Take profit</small>$${fmt(R.tp)}</div>`;
+  $("why").innerHTML=R.why.map(w=>`<li><span>${w.label}</span><span class="${w.pts>0?"buy":w.pts<0?"sell":"hold"}">${w.val}</span></li>`).join("");
+  R.lv=zonesCalc(d,R.last,live?day:null);
+  lastR=live?R:null;riskCalc();if(live)track(R);
+  draw(d,R);
+}
+
+async function load(){
+  clearTimeout(timer);$("status").textContent="Fetching live data (up to 6 seconds)…";$("status").className="note";
+  try{
+    const d=await fetchK(ASSETS[asset].sym,tf);
+    const day=tf==="1d"?d.at(-2):await fetchK(ASSETS[asset].sym,"1d").then(k=>k.at(-2)).catch(()=>null);
+    render(d,true,day);
+    market();venues();if(tick++%4===0)mtf();
+    $("status").textContent="LIVE · updated "+new Date().toLocaleTimeString()+" · refreshes every 30 s · candles: price, blue: SMA 20, gold: SMA 50, grey: Bollinger, dashed green: support, dashed red: resistance";
+  }catch(e){
+    render(demoData(),false);
+    $("mkt").textContent="Market info unavailable (no connection to market servers).";
+    $("status").innerHTML="<b>No live data.</b> The page works, but it can't reach Binance, Bybit or OKX from your network. Showing DEMO data only, not real prices. Try: open the file in Chrome/Edge, turn on a VPN, or check your internet. Retrying every 30 s.";
+    $("status").className="note err";
+  }
+  timer=setTimeout(load,30000);
+}
+window.onerror=(m,u,l)=>{$("status").textContent="Script error: "+m+" (line "+l+")";$("status").className="note err"};
+load();tvLoad();
+</script>
+</body>
+</html>
